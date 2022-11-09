@@ -1,0 +1,20 @@
+predict.BC.SLR<-function(rfobj, train.data, test.data=train.data, y.var){
+  
+  #this function predict RF regression with bias correction
+  #the idea of bias correction is simple.
+  #we fit SLR for predicted y vs observed y
+  #bias_corrected_yhat=a+b*yhat
+  #so when new data (test data) comes, get the fitted value first and 
+  #get the fitted value using SLR
+  
+  #first, fit yhat on y using SLR and get the coeffs
+  rf1.pred<-predict(rfobj,train.data)$predictions
+  rf1.orgy<-train.data[,y.var]
+  lm1<-lm(rf1.orgy~rf1.pred)$coeff
+  #print(lm1)
+  
+  #next, get the fitted value of RF for test data
+  rf1testdata.pred<-predict(rfobj,test.data)$predictions
+  rf1.testdata.bcpred<-lm1[1]+lm1[2]*rf1testdata.pred
+  return(list(pred = cbind(rf1testdata.pred,rf1.testdata.bcpred), coef = lm1))#first col is original RF, second col is BCRF estimates
+}
