@@ -19,7 +19,7 @@
 
 # RStudio files
 .Rproj.user/
-.SPARES.Rproj
+SPARES.Rproj
 
 # produced vignettes
 vignettes/*.html
