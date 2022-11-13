@@ -31,13 +31,14 @@ SPR_Imputation = function(data, y_var, status_var, K, EoR_distn, EoR_seed, EoR_t
   
   EoR.idx = which(data[, y_var] > EoR_time); 
   data[EoR.idx, status_var] = 0; data[EoR.idx, y_var] = EoR_time
+  censored_index = which(data[,status_var]==0)
   LTF.idx = setdiff(censored_index, EoR.idx)
   
   ## -------------------- LTF censored Imputation and Flatten -------------------- ##
   # KNN Imputation
   Imp_dat = y_Imputation(data, y_var, status_var, n.cluster=K)
   EoR.idx = which(is.na(Imp_dat[,y_var]))
-  EoR.idx = which(data$status == 0 & data$eventtime >= EoR_time)
+  # EoR.idx = which(data$status == 0 & data$eventtime >= EoR_time)
   Imp.idx = setdiff(which(data[,status_var] == 0), EoR.idx) #
   
   # flatten
@@ -145,6 +146,7 @@ Tune_sd = function(sd_cand, fitted_model, newdata, y_var, status_var, conti_idx,
   # Find the optimal standard deviation for sampling continuous variables
   ASP_res = list()
   for(cc in 1:length(sd_cand)){
+    print(paste0('sd_cand: ', sd_cand[cc]))
     SPR_Surv = Surv_ftn(conti_range=sd_cand[cc], fitted_model=fitted_model, newdata=newdata,y_var, conti_idx=conti_idx, discr_idx=discr_idx, num_sample = num_sample, sample_seed = sample_seed, max_time=max_time, min_time=min_time, BCRF_coef=BCRF_coef)
     Surv_time = as.data.frame(t(sapply(1:nrow(newdata), function(x) Check_My_Surv(SPR_Surv[[x]], max_time, seq(1,0.1,-0.1), EoR_time))))
     colnames(Surv_time) = paste0('P', seq(1, 0.1, -0.1))
@@ -156,7 +158,7 @@ Tune_sd = function(sd_cand, fitted_model, newdata, y_var, status_var, conti_idx,
   }
 
   opt_sd = which.min(lapply(lapply(ASP_res, '[[', 2), function(asp) mean((seq(1, 0.1, -0.1)-asp)^2)))
-  opt_ASP = ASP_res[[opt_sd]]; opt_ASP$opt_sd = sd_cand[opt_sd]; 
+  opt_ASP = ASP_res[[opt_sd]]; opt_ASP$opt_sd = sd_cand[opt_sd]; opt_ASP$opt_asp = ASP_res[[opt_sd]]$ASP
   return(opt_ASP)
 }
 

@@ -22,7 +22,7 @@
 SPARES_Imputation = function(X, y, censor_info, dist, reg_model, EoR_time, K, 
                              y_var, status_var, discr_names, ...){
   ## -------------------------- 1. Setting dataset -------------------------- ##
-  dat = data.frame(eventtime = y, status = censor_info, X)
+  dat = data.frame(eventtime = y, status = censor_info, X);
   dat = dat %>% mutate_at(discr_names, as.factor) %>% as.data.frame()
   
   
@@ -43,7 +43,7 @@ SPARES_Imputation = function(X, y, censor_info, dist, reg_model, EoR_time, K,
     mdl = lm(eventtime ~., data = sstrain$data)
     y_hat = calib_survtime(pred_survtime=predict(mdl), min_survtime=min(dat$eventtime))
   }else if(toupper(reg_model) == "RF"){
-    mdl = ranger(eventtime ~., data = sstrain$data, num.trees=100, seed=EoR_seed)
+    mdl = ranger(eventtime ~., data = sstrain$data[complete.cases(sstrain$data),], num.trees=100, seed=EoR_seed)
     y_hat = calib_survtime(pred_survtime=mdl$predictions, min_survtime=min(dat$eventtime))
   }else{
     print("reg_model is lin (linear regerssion) or rf (random forests)")
@@ -71,17 +71,15 @@ SPARES_ASP = function(dat, y_var, status_var, discr_names,  EoR_time, ...){
   conti_idx = which(!(colnames(dat) %in% c(discr_names, y_var, status_var)))
   discr_idx = which(colnames(dat) %in% discr_names)
   
-  survival_fn = Tune_sd(sd_cand=seq(0.5, 2.5, 0.1), fitted_model=mdl, newdata=dat, y_var=y_var, status_var=status_var,
+  survival_fn = Tune_sd(sd_cand=seq(1.5, 2.5, 0.1), fitted_model=model, newdata=dat, y_var=y_var, status_var=status_var,
                         conti_idx=conti_idx, discr_idx=discr_idx,
                         num_sample=500, max_time=max_time, min_time=min_time,
                         EoR_time = EoR_time, BCRF_coef=NULL)
-  
-  
-  ASP_res = survival_fn$ASP
+
   Opt_sd = survival_fn$opt_sd
-  ASP = sqrt(mean((ASP_res-seq(1,0.1,-0.1))^2))
+  opt_ASP = survival_fn$opt_asp
+  ASP = sqrt(mean((opt_ASP-seq(1,0.1,-0.1))^2))
   Surv_time = survival_fn$Surv_time
-  
-  return(list(Surv_time = Surv_time, ASP = ASP, Opt_sd=Opt_sd))
+  return(list(Surv_time = Surv_time, ASP = ASP, Opt_sd=Opt_sd, opt_ASP = opt_ASP))
 }
 
