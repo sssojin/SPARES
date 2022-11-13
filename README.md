@@ -13,7 +13,7 @@ You need to install packages using `install.packages`:
 - dplyr
 
 The SPARES model consists of two modules: SPARES_Imputation and SPARES_ASP.
-Please refer to the file `SPARES_run.Rmd`.
+Please refer to the file `SPARES_run.html`.
 
 
 
