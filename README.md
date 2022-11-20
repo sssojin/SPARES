@@ -11,7 +11,7 @@ You can call library through `library(PACKAGE_NAME)` or install packages using `
 
 
 The SPARES model consists of two modules: SPARES_Imputation and SPARES_ASP.
-Please refer to the file `SPARES_run.html`.
+Please refer to the file `SPARES_run.Rmd`.
 
 
 
