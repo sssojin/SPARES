@@ -116,7 +116,9 @@ EoR_Imputation = function(data, y_var, status_var, y_rank, EoR, dist, par,
   } else {
     est = (dplyr::filter(data.frame(x = rlnorm(Nsample, par[1], par[2])), x > EoR))[1:length(y_rank),]
   }
-  data[is.na(y), y_var] = sort(est)[y_rank]
+  na.idx = which(is.na(data[,y_var]==TRUE))
+  data[na.idx, y_var] = sort(est)[y_rank]
+  # data[is.na(y), y_var] = sort(est)[y_rank]
   return(data %>% dplyr::select(-all_of(status_var)))
 }
 

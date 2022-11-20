@@ -73,7 +73,7 @@ SPR_Imputation = function(data, y_var, status_var, K, EoR_distn, EoR_seed, EoR_t
     E_Dist = optim(init, function(x) -CLL(x, data[,y_var], data[,status_var]))
     
     ## Sampling
-    sstrain = EoR_Imputation(flat_dat, y_var, status_var, EoR_rank, EoRmin, EoR_distn, E_Dist$par, EoR_seed = EoR_seed, EoR.idx)
+    sstrain = EoR_Imputation(data = flat_dat, y_var, status_var, y_rank = EoR_rank, EoR = EoRmin, dist = EoR_distn, E_Dist$par, EoR_seed = EoR_seed)
     out_list = list(data = sstrain, LTF.idx = Imp.idx, EoR.idx = EoR.idx, EoR.distn.params = E_Dist$par)
   }else{
     sstrain = flat_dat
@@ -146,7 +146,7 @@ Tune_sd = function(sd_cand, fitted_model, newdata, y_var, status_var, conti_idx,
   # Find the optimal standard deviation for sampling continuous variables
   ASP_res = list()
   for(cc in 1:length(sd_cand)){
-    print(paste0('sd_cand: ', sd_cand[cc]))
+    
     SPR_Surv = Surv_ftn(conti_range=sd_cand[cc], fitted_model=fitted_model, newdata=newdata,y_var, conti_idx=conti_idx, discr_idx=discr_idx, num_sample = num_sample, sample_seed = sample_seed, max_time=max_time, min_time=min_time, BCRF_coef=BCRF_coef)
     Surv_time = as.data.frame(t(sapply(1:nrow(newdata), function(x) Check_My_Surv(SPR_Surv[[x]], max_time, seq(1,0.1,-0.1), EoR_time))))
     colnames(Surv_time) = paste0('P', seq(1, 0.1, -0.1))
@@ -154,7 +154,8 @@ Tune_sd = function(sd_cand, fitted_model, newdata, y_var, status_var, conti_idx,
 
     ASP_ = SPR_ASP(SPR_Surv, newdata, y_var, status_var, max_time, EoR_time)
     ASP_res[[cc]] = list(SurvF = SPR_Surv, ASP = ASP_, Surv_time = Surv_time)
-
+    cat_asp = sum((ASP_res[[cc]]$ASP - seq(1, 0.1, -0.1))^2)
+    cat('sd_cand: ', round(sd_cand[cc],1) , ', ASP:', round(cat_asp,4),'\n')
   }
 
   opt_sd = which.min(lapply(lapply(ASP_res, '[[', 2), function(asp) mean((seq(1, 0.1, -0.1)-asp)^2)))
