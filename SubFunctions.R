@@ -119,7 +119,7 @@ EoR_Imputation = function(data, y_var, status_var, y_rank, EoR, dist, par,
   na.idx = which(is.na(data[,y_var]==TRUE))
   data[na.idx, y_var] = sort(est)[y_rank]
   # data[is.na(y), y_var] = sort(est)[y_rank]
-  return(data %>% dplyr::select(-all_of(status_var)))
+  return(data)
 }
 
 
@@ -152,7 +152,6 @@ Check_My_Surv = function(surv_ftn, max.root, check_prob, EoR_time){
   time.pts = sapply(check_prob, myftn)
   return(time.pts)
 }
-
 
 cal_ASP = function(est.survtimes, obs.survtimes, status){
   P_SSR = apply(est.survtimes, 2, function(x){
@@ -346,9 +345,9 @@ RF_Surv_ftn = function(conti_range, fitted_model, newdata, yvar,conti_idx, discr
       # When BCRF is applied
       pred_surv_times = predict(fitted_model, data = sampled_data)$predictions
       pred_surv_times = BCRF_coef[1]+BCRF_coef[2]*pred_surv_times
-      pred_surv_times = ifelse(pred_surv_times < 0, min_time, pred_surv_times)
+      pred_surv_times = ifelse(pred_surv_times < 0, min_time, pred_surv_times)[1:num_sample]
     }else{
-      pred_surv_times = predict(fitted_model, data = sampled_data)$predictions
+      pred_surv_times = predict(fitted_model, data = sampled_data)[1:num_sample]
     }
     
     # Predict survival function by Kaplan-Meier method

@@ -2,38 +2,47 @@
 title: "SPARES_run"
 output: html_document
 ---
+# --------------------------------------------------------------------------------------------
+## SPARES_Imputation : Imputate censored survival times with weibull or lognormal distribution
 
-## SPARES_Imputation
+# Input
+# - X : covariates matrix
+# - y : survival times vector
+# - censor_info : censoring vector
+# - dist : distribution for imputation of censored survival times (weibull or lognormal)
+# - reg_model : regression model for prediction of survival times (linear regression or random forests)
+# - EoR_time : time of end of research
+# - K : k value in KNN
+# - discr_names: vector of factor variables among independent variables
 
-### Input
-### - X : covariates matrix
-### - y : survival times vector
-### - censor_info : censoring vector
-### - factor_var: vector of factor variables among independent variables
-### - dist : distribution for imputation of censored survival times (weibull or lognormal)
-### - reg_model : regression model for prediction of survival times (linear regression or random forests)
-### - EoR_time : time of end of research
-### - K : k value in KNN
+# - Output
+# - model : fitted regression model
+# - y_hat : predicted survival times
+# - dat : original data
+# - Imputed_dat : new data with imputed_y
+# - imputed_y : imputed survival times for censored observation
+# - BCRF_coef : BCRF coefficients for random forest model(lm model: BCRF=MULL)
 
-### Output
-### - y_hat : predicted survival times
-### - imputed_y : imputed survival times for censored observation
-### - model : fitted regression model
-### - dat : new data with imputed_y
 
-## SPARES_ASP
+# --------------------------------------------------------------------------------------------
+## SPARES_ASP : Calculate survival time and ASP. Includes finding optim value of sd.
 
-### Input
-### - dat : output from the SPARES_Imputation
-### - EoR_time : time of end of research
+# - Input
+# - dat : output from the SPARES_Imputation
+# - Imputed_dat : new data with imputed_y
+# - discr_names: vector of factor variables among independent variables
+# - EoR_time : time of end of research
+# - BCRF_coef : BCRF coefficients for random forest model(lm model: BCRF=MULL)
 
-### Output
-### - surv_time : survival probability matrix for each observation
-### - asp : asp for the model
+# - Output
+# - surv_time : survival time matrix for each observation
+# - surv_prob : survival probability
+# - asp : asp for the model
+# - opt_sd : optimal sd value
+# --------------------------------------------------------------------------------------------
 
 
 ```{r}
-rm(list=ls())
 # Call Functions
 source('MainFunctions.R')
 source('SubFunctions.R')
@@ -72,19 +81,82 @@ Imputation = SPARES_Imputation(X, y, censor_info, dist, reg_model, EoR_time, K,
 model = Imputation$model
 y_hat = Imputation$y_hat
 dat = Imputation$dat
+Imputed_dat = Imputation$Imputed_dat
 imputed_y = Imputation$imputed_y
+BCRF_coef = Imputation$BCRF_coef
 ```
 
 ## Module2: SPARES_ASP
 ```{r}
-ASP = SPARES_ASP(dat, y_var='eventtime', status_var='status', discr_names=factor_var, EoR_time)
+ASP = SPARES_ASP(dat=dat, Imputed_dat=Imputed_dat, y_var='eventtime', status_var='status', discr_names=factor_var, EoR_time, BCRF_coef=BCRF_coef)
 
 surv_time = ASP$Surv_time
-asp_res = ASP$opt_ASP
+surv_prob = ASP$opt_ASP
 asp = ASP$ASP
 opt_sd = ASP$Opt_sd
-asp_res
+surv_prob
 paste0('Optimal sd: ', opt_sd)
 paste0('ASP: ', asp)
 ```
+
+# --------------------------------------------------------------------------------------------
+## Ftn_fit_mdl : regression model for prediction of survival times (linear regression or random forests)
+
+# Input
+# - reg_model : regression model for prediction of survival times (linear regression or random forests)
+# - data : data to use
+
+# - Output
+# - model : fitted  model
+# - y_hat : predicted value
+
+# --------------------------------------------------------------------------------------------
+## Ftn_cal_Surv_time : Calculate survival time
+
+# - Input
+# - newdata : data to use
+# - discr_names: vector of factor variables among independent variables
+# - BCRF_coef : BCRF coefficients for random forest model(lm model: BCRF=MULL)
+# - num_sample : number of samples(default=500)
+# - conti_range : value multiplied by sd when determining sample range(default=1)
+
+# - Output
+# - surv_time : survival time matrix for each observation
+# - SPR_Surv : survival function
+# --------------------------------------------------------------------------------------------
+## Ftn_cal_ASP : Calculate ASP
+
+# - Input
+# - SPR_Surv : survival function
+# - newdata: data to use
+# - EoR_time : time of end of research
+
+# - Output
+# - asp : ASP value
+# --------------------------------------------------------------------------------------------
+
+## Module3-1: Ftn_fit_mdl
+```{r}
+fit_model = Ftn_fit_mdl(reg_model, data = Imputed_dat, y_var='eventtime', status_var='status')
+mdl = fit_model$mdl
+y_hat = fit_model$y_hat
+```
+
+
+## Module3-2: Ftn_cal_Surv_time
+```{r}
+Surv = Ftn_cal_Surv_time(newdata = dat, y_var='eventtime', status_var='status', discr_names=factor_var,BCRF_coef=BCRF_coef, num_sample=500, conti_range = 1)
+
+Surv_time = Surv$Surv_time
+SPR_Surv = Surv$SPR_Surv
+Surv_time
+```
+
+## Module3-3: Ftn_cal_ASP
+```{r}
+ASP = Ftn_cal_ASP(SPR_Surv=SPR_Surv, newdata = dat, y_var='eventtime', status_var='status', EoR_time=EoR_time)
+ASP
+```
+
+
 

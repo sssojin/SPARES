@@ -46,7 +46,7 @@ SPR_Imputation = function(data, y_var, status_var, K, EoR_distn, EoR_seed, EoR_t
   pred_dat = data.frame(t(pred_dat))
   k_to_flatten = predict(k.rf, pred_dat)$predictions
   flat_dat = Imp_flatten(Imp_dat, data, Imp.idx, EoR.idx, y_var, k = k_to_flatten)
-  
+  flat_dat[which(flat_dat$eventtime < data$eventtime),y_var] = data[which(flat_dat$eventtime < data$eventtime),y_var]
   
   ## -------------------------- EoR censored Imputation -------------------------- ##
   if(length(EoR.idx) != 0){
@@ -150,12 +150,13 @@ Tune_sd = function(sd_cand, fitted_model, newdata, y_var, status_var, conti_idx,
     SPR_Surv = Surv_ftn(conti_range=sd_cand[cc], fitted_model=fitted_model, newdata=newdata,y_var, conti_idx=conti_idx, discr_idx=discr_idx, num_sample = num_sample, sample_seed = sample_seed, max_time=max_time, min_time=min_time, BCRF_coef=BCRF_coef)
     Surv_time = as.data.frame(t(sapply(1:nrow(newdata), function(x) Check_My_Surv(SPR_Surv[[x]], max_time, seq(1,0.1,-0.1), EoR_time))))
     colnames(Surv_time) = paste0('P', seq(1, 0.1, -0.1))
-    rownames(Surv_time) = paste0("Obs",1:length(y))
+    rownames(Surv_time) = paste0("Obs",1:nrow(newdata))
 
     ASP_ = SPR_ASP(SPR_Surv, newdata, y_var, status_var, max_time, EoR_time)
     ASP_res[[cc]] = list(SurvF = SPR_Surv, ASP = ASP_, Surv_time = Surv_time)
     cat_asp = sum((ASP_res[[cc]]$ASP - seq(1, 0.1, -0.1))^2)
-    cat('sd_cand: ', round(sd_cand[cc],1) , ', ASP:', round(cat_asp,4),'\n')
+    cat('sd_cand: ', round(sd_cand[cc],1),'\n')
+    # cat('sd_cand: ', round(sd_cand[cc],1) , ', ASP:', round(cat_asp,4),'\n')
   }
 
   opt_sd = which.min(lapply(lapply(ASP_res, '[[', 2), function(asp) mean((seq(1, 0.1, -0.1)-asp)^2)))
