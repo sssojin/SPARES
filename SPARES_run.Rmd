@@ -21,7 +21,7 @@ output: html_document
 # - dat : original data
 # - Imputed_dat : new data with imputed_y
 # - imputed_y : imputed survival times for censored observation
-# - BCRF_coef : BCRF coefficients for random forest model(lm model: BCRF=MULL)
+# - BCRF_coef : BCRF coefficients for random forest model(lm model: BCRF=NULL)
 
 
 # --------------------------------------------------------------------------------------------
@@ -32,7 +32,7 @@ output: html_document
 # - Imputed_dat : new data with imputed_y
 # - discr_names: vector of factor variables among independent variables
 # - EoR_time : time of end of research
-# - BCRF_coef : BCRF coefficients for random forest model(lm model: BCRF=MULL)
+# - BCRF_coef : BCRF coefficients for random forest model(lm model: BCRF=NULL)
 
 # - Output
 # - surv_time : survival time matrix for each observation
@@ -66,12 +66,10 @@ discr_names=factor_var
 EoR_time = 10
 K = 10
 dist = 'weibull' # you can choose among WEIBULL, LOGNORMAL
-reg_model='lin' # you can choose among rf, lin
+reg_model='rf' # you can choose among rf, lin
 EoR_seed=1886
 
 ```
-
-
 
 ## Module1: SPARES_Imputation
 ```{r}
@@ -116,7 +114,7 @@ paste0('ASP: ', asp)
 # - Input
 # - newdata : data to use
 # - discr_names: vector of factor variables among independent variables
-# - BCRF_coef : BCRF coefficients for random forest model(lm model: BCRF=MULL)
+# - BCRF_coef : BCRF coefficients for random forest model(lm model: BCRF=NULL)
 # - num_sample : number of samples(default=500)
 # - conti_range : value multiplied by sd when determining sample range(default=1)
 
@@ -137,7 +135,7 @@ paste0('ASP: ', asp)
 
 ## Module3-1: Ftn_fit_mdl
 ```{r}
-fit_model = Ftn_fit_mdl(reg_model, data = Imputed_dat, y_var='eventtime', status_var='status')
+fit_model = Ftn_fit_mdl(reg_model='rf', data = Imputed_dat, y_var='eventtime', status_var='status', BCRF_coef=BCRF_coef)
 mdl = fit_model$mdl
 y_hat = fit_model$y_hat
 ```

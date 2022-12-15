@@ -58,14 +58,15 @@ SPARES_ASP = function(dat, Imputed_dat, y_var, status_var, discr_names,  EoR_tim
 }
 
 # Ftn_fit_mdl function
-Ftn_fit_mdl = function(reg_model, data, y_var='eventtime', status_var='status'){
+Ftn_fit_mdl = function(reg_model, data, y_var='eventtime', status_var='status',BCRF_coef){
   mdl_dat =  data%>% select(-status_var)
   if(toupper(reg_model) == "LIN"){
     mdl = lm(paste0(y_var, " ~."), data = mdl_dat)
     y_hat = calib_survtime(pred_survtime=predict(mdl), min_survtime=min(mdl_dat[,y_var])); BCRF_coef = NULL
   }else if(toupper(reg_model) == "RF"){
     mdl = ranger(paste0(y_var, " ~."), data =  mdl_dat, num.trees=100, seed=1886)
-    y_hat = calib_survtime(pred_survtime=mdl$predictions, min_survtime=min(mdl_dat[,y_var])); BCRF_coef = NULL
+    mdl_BCRF = predict.BC.SLR(mdl, mdl_dat, mdl_dat, 'eventtime'); BCRF_coef = mdl_BCRF$coef
+    y_hat = calib_survtime(pred_survtime=mdl_BCRF$pred[,2], min_survtime=min(dat$eventtime))    
   }
   return (list(mdl=mdl, y_hat=y_hat))
 }    
