@@ -6,6 +6,7 @@ library(dplyr); library(e1071);
 library(parallel); library(doParallel)
 library(GeneralizedHyperbolic)
 library(dplyr)
+library(quantregForest); library(quantreg)
 # library(GeneralizedHyperbolic)
 
 
@@ -142,17 +143,29 @@ SurvF = function(data, max.time){
 
 
 # Check_My_Surv : To find a root with a specific survival probability
+#Check_My_Surv = function(surv_ftn, max.root, check_prob, EoR_time){
+#  myftn = function(prob){
+#    get_root = function(x) surv_ftn(x) - prob
+#    root = uniroot(get_root, c(0, max.root))$root
+#    # EoR check
+#    if(!is.null(EoR_time) & root>EoR_time) return(EoR_time) else return(root)
+#  }
+#  time.pts = sapply(check_prob, myftn)
+#  return(time.pts)
+#}
 Check_My_Surv = function(surv_ftn, max.root, check_prob, EoR_time){
   myftn = function(prob){
     get_root = function(x) surv_ftn(x) - prob
-    root = uniroot(get_root, c(0, max.root))$root
+    # root = uniroot(get_root, c(0, max.root))$root
+    poss = tryCatch({root = uniroot(get_root, c(0, max.root))$root},
+                    error = function(e) print("uniroot error occurs"))
+    if (poss == "uniroot error occurs"){root = max.root}
     # EoR check
     if(!is.null(EoR_time) & root>EoR_time) return(EoR_time) else return(root)
   }
   time.pts = sapply(check_prob, myftn)
   return(time.pts)
 }
-
 cal_ASP = function(est.survtimes, obs.survtimes, status){
   P_SSR = apply(est.survtimes, 2, function(x){
     alive = as.numeric(x <= obs.survtimes)
@@ -384,4 +397,54 @@ XGB_Surv_ftn = function(conti_range, fitted_model, newdata, conti_idx, discr_idx
 
 calib_survtime = function(pred_survtime, min_survtime){
   ifelse(pred_survtime < 0, min_survtime, pred_survtime)
+}
+
+# ------------------------------------------------------------- #
+# comp_ASP6
+# -> new verison of ASP calculating function
+# ------------------------------------------------------------- #
+
+comp_ASP6<- function(surv_time, myp=seq(0.9,0.1,-0.1), obs_y, status, EOR_time){
+  # This function computes the ASP
+  # First input is surv_time. It is suvival time for given survival prob.
+  # myp is the survival prob. Usually, we assume it is from 0.9 to 0.1.
+  # myp can be changed later, for example, from 0.09 to 0.01
+  # obs_y is the actual survial time (or event or death time)
+  # status is 1 if it is censored, 0 otherwise.
+  # we compute the proportion of survived for given survival prob.
+  # For example, let's assume surv prob is 0.9
+  # For each observation, there will be surv time for surv prob=0.9
+  # That is the first column of surv_time
+  # We compute the propotion of observations with first column >= obs_y
+  # We repeat this process until the last column
+  # We have to consider censored obs. 
+  # If censored obs.time >=surv_time, no problem. because it is alive.
+  # If censored obs.time <=surv_time, we don't know it is alive or not. 
+  # Therefore, we have to remove this obs from the calculation
+  # EOR_time is required because any EOR sensored observations must be considered alive
+  # because we don't know it's alive or not.
+  
+  
+  p<-length(myp)
+  n<-nrow(surv_time) #number of observations
+  surv_prop<-rep(0,p)  # surv prop for each column (p=0.9 to 0.1)
+  
+  for (i in 1:p){
+    obs_y_LTF.censored<-obs_y[status==1 & obs_y < EOR_time]
+    #obs_y_nocensored<-obs_y[status==0]
+    survtime_censored<-surv_time[status==1 & obs_y < EOR_time,i]
+    
+    surv.n<-sum(ifelse(surv_time[,i]<=obs_y |obs_y==EOR_time,1,0))
+    death.n<-n-surv.n
+    cens.n<-sum(ifelse(survtime_censored >=obs_y_LTF.censored,1,0)) 
+    # we don't know it's alive or not. 
+    # Therefore remove these from numerator and denominator
+    #print(paste(surv.n,death.n,cens.n))
+    surv_prop[i]<-(n-death.n)/n
+    # print(surv_prop)
+  }
+  
+  ASP<-sum((surv_prop-myp)^2)
+  
+  return(list(surv_prop=surv_prop,ASP=ASP))
 }

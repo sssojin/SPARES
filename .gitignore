@@ -41,3 +41,10 @@ vignettes/*.pdf
 
 .DS_Store
 .gitignore
+
+ExampleData.csv
+Example_final.R
+real_data2.R
+realdata2_28.csv
+realdata2_41.csv
+realdata2_60.csv

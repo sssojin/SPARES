@@ -187,11 +187,14 @@ Cox_ASP = function(Cox_model, newdata, y_var, status_var, max_time, EoR_time){
   a = lapply(1:nrow(newdata), function(x) survfit(Cox_model, newdata = newdata[x,]))
   b = lapply(1:nrow(newdata), function(x) SurvF(data.frame(time = a[[x]]$time, surv = a[[x]]$surv), max_time))
   # Find survival times with survival probability of 0, 0.1, ..., 0.9, 1
-  c = as.data.frame(t(sapply(1:nrow(newdata), function(x) Check_My_Surv(b[[x]], max_time, seq(1, 0.1, -0.1), EoR_time))))
-  colnames(c) = paste0('P', seq(1, 0.1, -0.1))
+  c = as.data.frame(t(sapply(1:nrow(newdata), function(x) Check_My_Surv(b[[x]], max_time, seq(0.9, 0.1, -0.1), EoR_time))))
+  colnames(c) = paste0('P', seq(0.9, 0.1, -0.1))
   # Calculate ASP
-  d = cal_ASP(c, newdata[,y_var], newdata[,status_var])
-  return(d)
+  result1<-comp_ASP6(c, seq(0.9,0.1,-0.1), newdata[,y_var], newdata[,status_var], EoR_time)
+  Surv_Prob = result1$surv_prop
+  ASP = result1$ASP
+  # d = cal_ASP(c, newdata[,y_var], newdata[,status_var])
+  return(Surv_Prob)
 }
 
 # ------------------------------------------------------------- #
@@ -216,9 +219,36 @@ RSF_ASP = function(RSF_model, newdata, y_var, status_var, max_time, EoR_time){
   a = predict(RSF_model, newdata = newdata)
   b = lapply(1:nrow(newdata), function(x) SurvF(data.frame(time = a$time.interest, surv = a$survival[x, ]), max_time))
   # Find survival times with survival probability of 0, 0.1, ..., 0.9, 1
-  c = as.data.frame(t(sapply(1:nrow(newdata), function(x) Check_My_Surv(b[[x]], max_time, seq(1, 0.1, -0.1), EoR_time))))
-  colnames(c) = paste0('P', seq(1, 0.1, -0.1))
+  c = as.data.frame(t(sapply(1:nrow(newdata), function(x) Check_My_Surv(b[[x]], max_time, seq(0.9, 0.1, -0.1), EoR_time))))
+  colnames(c) = paste0('P', seq(0.9, 0.1, -0.1))
   # Calculate ASP
-  d = cal_ASP(c, newdata[,y_var], newdata[,status_var])
-  return(d)
+  result1<-comp_ASP6(c, seq(0.9,0.1,-0.1), newdata[,y_var], newdata[,status_var], EoR_time)
+  Surv_Prob = result1$surv_prop
+  ASP = result1$ASP  
+  # d = cal_ASP(c, newdata[,y_var], newdata[,status_var])
+  return(Surv_Prob)
 }
+
+# New ASP
+Qt_ASP = function(fitted_model, newdata, y_var, status_var, EoR_time){
+
+  y = newdata[,y_var]
+  X = subset(newdata, select = -c(eventtime, status))
+  
+  # Find the optimal standard deviation for sampling continuous variables
+  if (class(fitted_model) == "ranger") {
+    qrf1<-quantregForest(x=X, y=y, nthread=32, nodesize=100, sampsize=1000)
+    Surv_time<-predict(qrf1, X, what=0.1*seq(1:9))
+  } else if (class(fitted_model) == "lm"){
+    rq1<-rq(eventtime~., data=newdata, tau=0.1*(1:9))
+    Surv_time<-predict(rq1)
+  }
+  colnames(Surv_time) = paste0('P', seq(0.9, 0.1, -0.1))
+  rownames(Surv_time) = paste0("Obs",1:nrow(newdata))   
+  result1<-comp_ASP6(Surv_time, seq(0.9,0.1,-0.1), newdata[,y_var], newdata[,status_var], EoR_time)
+  Surv_Prob = result1$surv_prop
+  ASP = result1$ASP
+  return(list(Surv_Prob=Surv_Prob, ASP=ASP))
+}
+
+
