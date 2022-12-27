@@ -1,160 +1,157 @@
----
-title: "SPARES_run"
-output: html_document
----
-# --------------------------------------------------------------------------------------------
-## SPARES_Imputation : Imputate censored survival times with weibull or lognormal distribution
+## How to use SPARES for survival analysis
+## SPARES has 3 steps
+## 1. Imputation : KNN for LTF-censored and parametric imputation for EOR-censored
+## 2. Regression : After imputation, we can use any regression model
+## 3. Survival probability(or duration) estimation
+##    A. tuneSD : make variation in dataset
+##    B. residual bootstrapping
+##    C. quantile regression
 
-# Input
-# - X : covariates matrix
-# - y : survival times vector
-# - censor_info : censoring vector
-# - dist : distribution for imputation of censored survival times (weibull or lognormal)
-# - reg_model : regression model for prediction of survival times (linear regression or random forests)
-# - EoR_time : time of end of research
-# - K : k value in KNN
-# - discr_names: vector of factor variables among independent variables
-
-# - Output
-# - model : fitted regression model
-# - y_hat : predicted survival times
-# - dat : original data
-# - Imputed_dat : new data with imputed_y
-# - imputed_y : imputed survival times for censored observation
-# - BCRF_coef : BCRF coefficients for random forest model(lm model: BCRF=NULL)
-
-
-# --------------------------------------------------------------------------------------------
-## SPARES_ASP : Calculate survival time and ASP. Includes finding optim value of sd.
-
-# - Input
-# - dat : output from the SPARES_Imputation
-# - Imputed_dat : new data with imputed_y
-# - discr_names: vector of factor variables among independent variables
-# - EoR_time : time of end of research
-# - BCRF_coef : BCRF coefficients for random forest model(lm model: BCRF=NULL)
-
-# - Output
-# - surv_time : survival time matrix for each observation
-# - surv_prob : survival probability
-# - asp : asp for the model
-# - opt_sd : optimal sd value
-# --------------------------------------------------------------------------------------------
-
-
+## To use SPARES, need some packages and functions
+## You also should have 'modeling_k_rf.rds' for flattening procedure
 ```{r}
-# Call Functions
 source('MainFunctions.R')
 source('SubFunctions.R')
-source('BCRF.R')
 source('Module.R')
 ```
 
-## read file
+## Example 1
+## We will use example.csv file. This data has 2000 observations and 5 variables
+## First column, eventtime is the survival time (Y)
+## Next 4 columns are explanatory variables
+## status is censoring info. 0=censored, 1=non-censored
 ```{r}
-# Input data
-data = read.csv('example.csv')
-factor_var = c()
-y = data$eventtime
-censor_info=data$status
-X = subset(data, select = -c(eventtime, status))
+mydata1<-read.csv('example.csv')
+dim(mydata1)
+head(mydata1)
+```
 
-# Variable name
-discr_names=factor_var
+#myY<-mydata1$eventtime
+#myX<-subset(mydata1, select=-c(eventtime,status))
+#censor_info<-mydata1$status
 
-# model options
-EoR_time = 10
-K = 10
-dist = 'weibull' # you can choose among WEIBULL, LOGNORMAL
-reg_model='rf' # you can choose among rf, lin
-EoR_seed=1886
+#model options
+```{r}
+EOR_time=10 	#(End of research time)
+K=10  			#(K in KNN imputation)
+mydist='weibull'	#for EOR imputation. we support 'weibull' and 'lognormal'
 
 ```
 
-## Module1: SPARES_Imputation
+#imputation
 ```{r}
-Imputation = SPARES_Imputation(X, y, censor_info, dist, reg_model, EoR_time, K,
-                               y_var = 'eventtime', status_var = 'status', discr_names=factor_var)
-
-model = Imputation$model
-y_hat = Imputation$y_hat
-dat = Imputation$dat
-Imputed_dat = Imputation$Imputed_dat
-imputed_y = Imputation$imputed_y
-BCRF_coef = Imputation$BCRF_coef
+mydata1.imp<-SPR_Imputation(data=mydata1, y_var='eventtime',  status_var='status',
+				K=10, EoR_distn=mydist, EoR_seed=1234,EoR_time=10)
 ```
 
-## Module2: SPARES_ASP
-```{r}
-ASP = SPARES_ASP(dat=dat, Imputed_dat=Imputed_dat, y_var='eventtime', status_var='status', discr_names=factor_var, EoR_time, BCRF_coef=BCRF_coef)
+## now mydata1.imp has 4 attributes
+## $data is imputed data
+## $LTF.idx is LTF-censored observations index
+## $EoR.idx is EOR-censored observations index
+## $EoR.distn.params are estimated parameters for EOR imputation distribution
 
-surv_time = ASP$Surv_time
-surv_prob = ASP$opt_ASP
-asp = ASP$ASP
-opt_sd = ASP$Opt_sd
-surv_prob
-paste0('Optimal sd: ', opt_sd)
-paste0('ASP: ', asp)
+## Let's check Y
+```{r}
+plot(mydata1$eventtime,mydata1.imp$data$eventtime)
+abline(0,1,col=2)
 ```
 
-# --------------------------------------------------------------------------------------------
-## Ftn_fit_mdl : regression model for prediction of survival times (linear regression or random forests)
-
-# Input
-# - reg_model : regression model for prediction of survival times (linear regression or random forests)
-# - data : data to use
-
-# - Output
-# - model : fitted  model
-# - y_hat : predicted value
-
-# --------------------------------------------------------------------------------------------
-## Ftn_cal_Surv_time : Calculate survival time
-
-# - Input
-# - newdata : data to use
-# - discr_names: vector of factor variables among independent variables
-# - BCRF_coef : BCRF coefficients for random forest model(lm model: BCRF=NULL)
-# - num_sample : number of samples(default=500)
-# - conti_range : value multiplied by sd when determining sample range(default=1)
-
-# - Output
-# - surv_time : survival time matrix for each observation
-# - SPR_Surv : survival function
-# --------------------------------------------------------------------------------------------
-## Ftn_cal_ASP : Calculate ASP
-
-# - Input
-# - SPR_Surv : survival function
-# - newdata: data to use
-# - EoR_time : time of end of research
-
-# - Output
-# - asp : ASP value
-# --------------------------------------------------------------------------------------------
-
-## Module3-1: Ftn_fit_mdl
+## we can see that all imputed values >= original values and can be larger than EOR_time
+## Let's check LTF-censored observations only
 ```{r}
-fit_model = Ftn_fit_mdl(reg_model='rf', data = Imputed_dat, y_var='eventtime', status_var='status', BCRF_coef=BCRF_coef)
-mdl = fit_model$mdl
-y_hat = fit_model$y_hat
+plot(mydata1$eventtime[mydata1.imp$LTF.idx],mydata1.imp$data$eventtime[mydata1.imp$LTF.idx])
+abline(0,1,col=2)
 ```
 
-
-## Module3-2: Ftn_cal_Surv_time
+## Now let's fit a regression model
+## train/test split. 70% for train set, 30% for test set.
 ```{r}
-Surv = Ftn_cal_Surv_time(newdata = dat, y_var='eventtime', status_var='status', discr_names=factor_var,BCRF_coef=BCRF_coef, num_sample=500, conti_range = 1)
-
-Surv_time = Surv$Surv_time
-SPR_Surv = Surv$SPR_Surv
-Surv_time
+n<-nrow(mydata1)
+p<-0.7
+train.idx<-sample(n,n*p)
+mytraindata<-mydata1.imp$data[train.idx,-6]  #remove censor_info
+mytestdata<-mydata1.imp$data[-train.idx,-6]
+dim(mytraindata)
+dim(mytestdata)
 ```
 
-## Module3-3: Ftn_cal_ASP
+## let's fit RF
 ```{r}
-ASP = Ftn_cal_ASP(SPR_Surv=SPR_Surv, newdata = dat, y_var='eventtime', status_var='status', EoR_time=EoR_time)
-ASP
+rf1<-randomForest(eventtime~., data=mytraindata)
+rf1.pred<-predict(rf1,mytestdata)
+plot(mytestdata$eventtime,rf1.pred)
+abline(0,1,col=2)
 ```
 
+## looks ok. but it might be helpful to use bias-corrected RF
+```{r}
+sqrt(mean((rf1.pred-mytestdata$eventtime)^2))  #RMSE
+```
 
+## let's fit gbm
+```{r}
+library(gbm)
+gbm1<-gbm(eventtime~., data=mytraindata)
+gbm1.pred<-predict(gbm1,mytestdata)
+plot(mytestdata$eventtime,gbm1.pred)
+abline(0,1,col=2)
+sqrt(mean((gbm1.pred-mytestdata$eventtime)^2))  #RMSE
+```
+
+## or you can use any other regression models, including xgboost, lightgbm, catboost, etc.
+
+### Estimate survival probability (or survival time given survival probability)
+### for each observation
+### Since tuneSD method takes long time, we will show quantile regression in this example
+
+## Linear model
+```{r}
+rq1<-rq(eventtime~., data=mytraindata, tau=seq(0.1,0.9,0.1))
+rq1.pred<-predict(rq1,mytestdata)
+```
+
+## RF model
+```{r}
+Y.train = mytraindata[,"eventtime"]
+X.train = subset(mytraindata, select=-eventtime)
+X.test=subset(mytestdata, select = -eventtime)
+qrf1<-quantregForest(x=X.train, y=Y.train,nthread=16,nodesize=100,sampsize=1000)
+qrf1.pred<-predict(qrf1,X.test, what=0.1*seq(1:9))		
+```
+
+## gbm model
+```{r}
+myalpha=seq(0.1,0.9,0.1)
+gbm.res<-matrix(0,nrow=nrow(mytestdata),ncol=9)
+k<-0
+for (i in myalpha){
+
+	gbm1<-gbm(eventtime~., data=mytraindata, distribution=list(name="quantile",alpha=i),
+		n.trees=200, shrinkage=0.05,n.minobsinnode=100)
+	gbm1.pred<-predict(gbm1,mytestdata)
+	k<-k+1
+	gbm.res[,k]<-gbm1.pred
+}
+```
+
+## Note : we used only 0.1 to 0.9 by 0.1 to compute ASP later
+## If you want to have smooth survival probability lines then use seq(0.01,0.99,0.01)
+
+
+## ASP calculatoin
+```{r}
+comp_ASP6(rq1.pred, myp=seq(0.9,0.1,-0.1), mydata1$eventtime[-train.idx],
+			mydata1$status[-train.idx], 10)
+			
+comp_ASP6(qrf1.pred, myp=seq(0.9,0.1,-0.1), mydata1$eventtime[-train.idx],
+			mydata1$status[-train.idx], 10)
+
+comp_ASP6(gbm.res, myp=seq(0.9,0.1,-0.1), mydata1$eventtime[-train.idx],
+			mydata1$status[-train.idx], 10)
+```
+
+## To compute ASP for other survival models, you have to have survival times matrix
+## First column is survival times for survival prob=0.9, 
+## next column is survival times for survival prob=0.8, and so on until prob=0.1
+## So if you have 200 observations then your survival time matrix should be 200 by 9
 
