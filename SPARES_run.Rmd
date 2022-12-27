@@ -108,6 +108,8 @@ sqrt(mean((gbm1.pred-mytestdata$eventtime)^2))  #RMSE
 ```{r}
 rq1<-rq(eventtime~., data=mytraindata, tau=seq(0.1,0.9,0.1))
 rq1.pred<-predict(rq1,mytestdata)
+mynonneg<-function(x){ifelse(x<0, 0, x)}
+rq1.pred<-apply(rq1.pred,2, mynonneg) # surv time must be >=0
 ```
 
 ## RF model
